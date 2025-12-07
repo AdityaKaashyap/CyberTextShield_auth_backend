@@ -1,4 +1,4 @@
-const Report = require("../models/Report");
+const Report = require("../models/Reports");
 
 // FALSE POSITIVE → Model predicted smish but user says ham
 exports.reportFalsePositive = async (req, res) => {
