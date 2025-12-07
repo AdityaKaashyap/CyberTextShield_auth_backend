@@ -99,10 +99,13 @@ function getCanonicalNumber(country_code, phone_number) {
   }
 }
 
-// FORGOT PASSWORD
+// ===========================
+// SEND OTP (Forgot Password)
+// ===========================
 exports.forgotPassword = async (req, res) => {
   try {
     const { country_code, phone_number } = req.body;
+
     const fullNumber = getCanonicalNumber(country_code, phone_number);
     if (!fullNumber)
       return res.status(400).json({ message: "Invalid phone number/country code" });
@@ -110,38 +113,90 @@ exports.forgotPassword = async (req, res) => {
     const user = await User.findOne({ phone_number: fullNumber });
     if (!user) return res.status(400).json({ message: "User not found" });
 
-    // TODO: Send OTP via SMS here
-    return res.json({ message: "OTP sent to phone", user_id: user._id });
+    // Generate OTP
+    const otp = genOtp();
+    const expiresAt = new Date(Date.now() + OTP_EXP_MIN * 60 * 1000);
+
+    // Store OTP in DB
+    await OTP.create({
+      country_code,
+      phone_number: fullNumber,
+      otp,
+      expires_at: expiresAt,
+      used: false
+    });
+
+    // Send OTP SMS
+    await sendOtpSms(fullNumber, otp);
+
+    return res.json({
+      message: "OTP sent to phone",
+      user_id: user._id
+    });
+
   } catch (err) {
-    console.error(err);
+    console.error("Forgot Password Error:", err);
     res.status(500).json({ error: err.message });
   }
 };
 
+
+// ===========================
 // VERIFY OTP
+// ===========================
 exports.verifyOtp = async (req, res) => {
   try {
-    const { user_id, otp } = req.body;
-    // TODO: Verify OTP logic here
-    // For now, we just respond success
-    return res.json({ message: "OTP verified", user_id });
+    const { country_code, phone_number, otp } = req.body;
+
+    const fullNumber = getCanonicalNumber(country_code, phone_number);
+    if (!fullNumber) return res.status(400).json({ message: "Invalid phone number/country code" });
+
+    const record = await OTP.findOne({
+      phone_number: fullNumber,
+      otp,
+      used: false,
+      expires_at: { $gt: new Date() } // not expired
+    });
+
+    if (!record) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
+
+    // Mark OTP as used
+    record.used = true;
+    await record.save();
+
+    return res.json({ message: "OTP verified successfully" });
+
   } catch (err) {
-    console.error(err);
+    console.error("OTP Verification Error:", err);
     res.status(500).json({ error: err.message });
   }
 };
 
+
+// ===========================
 // RESET PASSWORD
+// ===========================
 exports.resetPassword = async (req, res) => {
   try {
-    const { user_id, new_password } = req.body;
-    const hashed = await bcrypt.hash(new_password, 10);
-    const user = await User.findByIdAndUpdate(user_id, { password: hashed }, { new: true });
+    const { country_code, phone_number, new_password } = req.body;
+
+    const fullNumber = getCanonicalNumber(country_code, phone_number);
+    if (!fullNumber) return res.status(400).json({ message: "Invalid phone number/country code" });
+
+    const user = await User.findOne({ phone_number: fullNumber });
     if (!user) return res.status(400).json({ message: "User not found" });
 
-    return res.json({ message: "Password reset successful", user_id: user._id });
+    // Update password
+    const hashed = await bcrypt.hash(new_password, 10);
+
+    await User.findByIdAndUpdate(user._id, { password: hashed });
+
+    return res.json({ message: "Password reset successful" });
+
   } catch (err) {
-    console.error(err);
+    console.error("Reset Password Error:", err);
     res.status(500).json({ error: err.message });
   }
 };
