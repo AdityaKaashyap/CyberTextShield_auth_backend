@@ -80,7 +80,7 @@ exports.login = async (req, res) => {
     if (!isMatch) return res.status(400).json({ message: "Incorrect password" });
 
     // ---- Create JWT Token ----
-    const token = jwtUtil.generate({
+    const token = jwtUtil.sign({
       id: user._id,
       phone_number: user.phone_number
     });
