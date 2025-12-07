@@ -14,9 +14,9 @@ app.use(express.json({ limit: "1mb" }));
 
 app.use("/auth", authRoutes);
 
-app.use("/reports", authMiddleware, reportRoutes);
+app.use("/reports", authMiddleware, reportsRoutes);
 app.use("/sms", authMiddleware, smsRoutes);
-app.use("/permissions", authMiddleware, permissionRoutes);
+app.use("/permissions", authMiddleware, permRoutes);
 
 app.get("/", (req, res) => res.send("API Working"))
 
