@@ -56,7 +56,7 @@ exports.login = async (req, res) => {
   try {
     const { country_code, phone_number, password } = req.body;
 
-    // Make canonical full number like registration
+    // Make canonical number
     const cc = country_code.startsWith("+") ? country_code : `+${country_code}`;
     const fullNumber = phone_number.startsWith("+") ? phone_number : `${cc}${phone_number}`;
 
@@ -79,12 +79,24 @@ exports.login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: "Incorrect password" });
 
-    return res.json({ message: "Login successful", user_id: user._id });
+    // ---- Create JWT Token ----
+    const token = jwtUtil.generate({
+      id: user._id,
+      phone_number: user.phone_number
+    });
+
+    return res.json({
+      message: "Login successful",
+      user_id: user._id,
+      token: token
+    });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
 };
+
 
 
 // FORGOT PASSWORD
