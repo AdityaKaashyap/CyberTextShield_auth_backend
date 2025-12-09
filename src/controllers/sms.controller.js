@@ -1,5 +1,3 @@
-// src/controllers/sms.controller.js
-
 const axios = require("axios");
 require("dotenv").config();
 
@@ -11,10 +9,22 @@ exports.intercept = async (req, res) => {
       return res.status(400).json({ error: "Message text is required" });
     }
 
-    // Default sender if not provided
-    const senderId = sender || "UNKNOWN";
+    const senderId = (sender || "UNKNOWN").toUpperCase();
 
-    // Load prediction endpoint from .env
+    // ✅ 1️⃣ RULE-BASED FILTER FIRST
+    const SAFE_SUFFIXES = ["-G", "-S", "-T", "-P"];
+
+    if (SAFE_SUFFIXES.some(suffix => senderId.endsWith(suffix))) {
+      return res.status(200).json({
+        message: "Safe sender detected",
+        model_output: {
+          predictions: ["ham"],
+          probabilities: [0.0]
+        }
+      });
+    }
+
+    // ✅ 2️⃣ OTHERWISE SEND TO HGNN MODEL
     const PREDICT_URL = process.env.FRONTEND_PREDICT_URL;
 
     if (!PREDICT_URL) {
@@ -23,7 +33,6 @@ exports.intercept = async (req, res) => {
       });
     }
 
-    // ------ Send to FastAPI Model ------
     const payload = {
       messages: [message],
       senders: [senderId]
