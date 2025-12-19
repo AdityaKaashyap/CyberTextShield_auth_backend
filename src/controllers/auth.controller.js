@@ -212,3 +212,31 @@ exports.resetPassword = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+const TokenBlacklist = require("../models/TokenBlacklist");
+const jwt = require("jsonwebtoken");
+exports.logout = async (req, res) => {
+  try {
+    const token = req.token;
+
+    const decoded = jwt.decode(token);
+    if (!decoded || !decoded.exp) {
+      return res.status(400).json({ message: "Invalid token" });
+    }
+
+    // Convert JWT expiry to Date
+    const expiresAt = new Date(decoded.exp * 1000);
+
+    await TokenBlacklist.create({
+      token,
+      expires_at: expiresAt
+    });
+
+    return res.json({ message: "Logout successful" });
+
+  } catch (err) {
+    console.error("Logout error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+

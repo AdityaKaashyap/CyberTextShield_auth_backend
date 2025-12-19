@@ -21,4 +21,6 @@ app.use("/permissions", authMiddleware, permRoutes);
 app.get("/", (req, res) => res.send("API Working"))
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Auth backend running on ${PORT}`));
+app.listen(PORT, "0.0.0.0", () => {
+  console.log("Server running on http://0.0.0.0:5000");
+});
