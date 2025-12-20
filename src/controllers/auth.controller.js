@@ -1,11 +1,13 @@
 const User = require("../models/User");
-const OTP = require("../models/OTP");
+// const OTP = require("../models/OTP");
 const bcrypt = require("bcrypt");
 const { validateFullNumber } = require("../utils/phone");
-const { sendOtpSms } = require("../utils/twilio");
 const jwtUtil = require("../utils/jwt");
 const { PhoneNumberUtil, PhoneNumberFormat } = require("google-libphonenumber");
 const phoneUtil = PhoneNumberUtil.getInstance();
+const { sendOtpWhatsApp } = require("../utils/whatsapp");
+const OTP = require("../models/OTP");
+
 
 const OTP_EXP_MIN = parseInt(process.env.OTP_EXPIRY_MINUTES || "5", 10);
 
@@ -117,74 +119,62 @@ function getCanonicalNumber(country_code, phone_number) {
 exports.forgotPassword = async (req, res) => {
   try {
     const { country_code, phone_number } = req.body;
-
     const fullNumber = getCanonicalNumber(country_code, phone_number);
+
     if (!fullNumber)
-      return res.status(400).json({ message: "Invalid phone number/country code" });
+      return res.status(400).json({ message: "Invalid phone number" });
 
     const user = await User.findOne({ phone_number: fullNumber });
     if (!user) return res.status(400).json({ message: "User not found" });
 
-    // Generate OTP
     const otp = genOtp();
-    const expiresAt = new Date(Date.now() + OTP_EXP_MIN * 60 * 1000);
+    const expiresAt = new Date(Date.now() + OTP_EXP_MIN * 60000);
 
-    // Store OTP in DB
     await OTP.create({
       country_code,
       phone_number: fullNumber,
       otp,
-      expires_at: expiresAt,
-      used: false
+      expires_at: expiresAt
     });
 
-    // Send OTP SMS
-    await sendOtpSms(fullNumber, otp);
+    // ✅ Send via WhatsApp
+    await sendOtpWhatsApp(fullNumber, otp);
 
-    return res.json({
-      message: "OTP sent to phone",
-      user_id: user._id
-    });
+    return res.json({ message: "OTP sent via WhatsApp" });
 
   } catch (err) {
-    console.error("Forgot Password Error:", err);
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 };
+
 
 
 // ===========================
 // VERIFY OTP
 // ===========================
 exports.verifyOtp = async (req, res) => {
-  try {
-    const { country_code, phone_number, otp } = req.body;
+  const { country_code, phone_number, otp } = req.body;
 
-    const fullNumber = getCanonicalNumber(country_code, phone_number);
-    if (!fullNumber) return res.status(400).json({ message: "Invalid phone number/country code" });
+  const fullNumber = getCanonicalNumber(country_code, phone_number);
 
-    const record = await OTP.findOne({
-      phone_number: fullNumber,
-      otp,
-      used: false,
-      expires_at: { $gt: new Date() } // not expired
-    });
+  const record = await OTP.findOne({
+    phone_number: fullNumber,
+    otp,
+    used: false,
+    expires_at: { $gt: new Date() }
+  });
 
-    if (!record) {
-      return res.status(400).json({ message: "Invalid or expired OTP" });
-    }
-
-    // Mark OTP as used
-    record.used = true;
-    await record.save();
-
-    return res.json({ message: "OTP verified successfully" });
-
-  } catch (err) {
-    console.error("OTP Verification Error:", err);
-    res.status(500).json({ error: err.message });
+  if (!record) {
+    return res.status(400).json({ message: "Invalid or expired OTP" });
   }
+
+  record.used = true;
+  await record.save();
+
+  return res.json({ message: "OTP verified" });
 };
+
 
 
 // ===========================
