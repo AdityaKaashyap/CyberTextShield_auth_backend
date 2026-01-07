@@ -6,7 +6,7 @@ const jwtUtil = require("../utils/jwt");
 const { PhoneNumberUtil, PhoneNumberFormat } = require("google-libphonenumber");
 const phoneUtil = PhoneNumberUtil.getInstance();
 const { sendOtpWhatsApp } = require("../utils/whatsapp");
-// const OTP = require("../models/OTP");
+const OTP = require("../models/OTP");
 
 
 const OTP_EXP_MIN = parseInt(process.env.OTP_EXPIRY_MINUTES || "5", 10);
